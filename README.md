@@ -24,21 +24,30 @@ cargo install --path .
 
 ### API キーの設定
 
+PAY.JP では2種類のキーを使用します：
+- **秘密鍵（sk_xxx）**: サーバーサイド操作（Charge, Customer, Card）
+- **公開鍵（pk_xxx）**: トークン作成
+
 以下の方法で API キーを設定できます（優先順位順）：
 
 1. **コマンドラインオプション**
    ```bash
+   # 秘密鍵
    payjp -k sk_test_xxx charge list
+
+   # 公開鍵（トークン作成用）
+   payjp --public-key pk_test_xxx token create ...
    ```
 
 2. **環境変数**
    ```bash
    export PAYJP_SECRET_KEY=sk_test_xxx
+   export PAYJP_PUBLIC_KEY=pk_test_xxx
    ```
 
 3. **設定ファイル**
    ```bash
-   payjp config set --api-key sk_test_xxx
+   payjp config set --api-key sk_test_xxx --public-key pk_test_xxx
    ```
 
 ### 設定ファイルの場所
@@ -52,10 +61,10 @@ cargo install --path .
 
 ```bash
 # テスト環境（デフォルト）
-payjp config set --api-key sk_test_xxx
+payjp config set --api-key sk_test_xxx --public-key pk_test_xxx
 
 # 本番環境
-payjp config set --profile production --api-key sk_live_xxx
+payjp config set --profile production --api-key sk_live_xxx --public-key pk_live_xxx
 
 # 本番環境を使用
 payjp -p production charge list
@@ -69,18 +78,44 @@ payjp -p production charge list
 payjp [OPTIONS] <COMMAND>
 
 Options:
-  -k, --api-key <KEY>     APIキー
-  -o, --output <FORMAT>   出力形式 [json|table]
-  -v, --verbose           詳細出力
-  -p, --profile <NAME>    使用するプロファイル
-  -h, --help              ヘルプ表示
-  -V, --version           バージョン表示
+  -k, --api-key <KEY>       秘密鍵（sk_xxx）
+  --public-key <KEY>        公開鍵（pk_xxx）
+  -o, --output <FORMAT>     出力形式 [json|table]
+  -v, --verbose             詳細出力
+  -p, --profile <NAME>      使用するプロファイル
+  -h, --help                ヘルプ表示
+  -V, --version             バージョン表示
 
 Commands:
+  token     トークン操作（公開鍵使用）
   charge    支払い操作
   customer  顧客操作
   card      カード操作
   config    設定管理
+```
+
+### Token（トークン）操作
+
+トークン作成は公開鍵を使用します：
+
+```bash
+# トークン作成（テストカード使用）
+payjp --public-key pk_test_xxx token create \
+  --number 4242424242424242 \
+  --exp-month 12 \
+  --exp-year 2025 \
+  --cvc 123
+
+# トークン作成（カード名義付き）
+payjp token create \
+  --number 4242424242424242 \
+  --exp-month 12 \
+  --exp-year 2025 \
+  --cvc 123 \
+  --name "TARO YAMADA"
+
+# トークン取得
+payjp token get tok_xxx
 ```
 
 ### Charge（支払い）操作
@@ -169,6 +204,35 @@ payjp -o json charge list
 
 # JSON形式で設定
 payjp config set --output json
+```
+
+## 典型的なワークフロー
+
+### 1. トークン作成から決済まで
+
+```bash
+# 1. 公開鍵でトークン作成
+payjp --public-key pk_test_xxx token create \
+  --number 4242424242424242 \
+  --exp-month 12 \
+  --exp-year 2025 \
+  --cvc 123
+
+# 2. 秘密鍵で決済
+payjp -k sk_test_xxx charge create --amount 3500 --card tok_xxx
+```
+
+### 2. 顧客登録から定期課金まで
+
+```bash
+# 1. トークン作成
+payjp token create --number 4242424242424242 --exp-month 12 --exp-year 2025 --cvc 123
+
+# 2. 顧客作成（トークンを紐付け）
+payjp customer create --email user@example.com --card tok_xxx
+
+# 3. 顧客に課金
+payjp charge create --amount 1000 --customer cus_xxx
 ```
 
 ## メタデータ

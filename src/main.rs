@@ -7,7 +7,7 @@ mod output;
 
 use api::PayjpClient;
 use clap::{Parser, Subcommand};
-use cli::{CardArgs, ChargeArgs, ConfigArgs, CustomerArgs};
+use cli::{CardArgs, ChargeArgs, ConfigArgs, CustomerArgs, TokenArgs};
 use config::Config;
 use std::process;
 
@@ -19,9 +19,13 @@ use std::process;
     author
 )]
 struct Cli {
-    /// API key (overrides PAYJP_SECRET_KEY environment variable)
+    /// Secret API key (overrides PAYJP_SECRET_KEY environment variable)
     #[arg(short = 'k', long, global = true)]
     api_key: Option<String>,
+
+    /// Public API key (overrides PAYJP_PUBLIC_KEY environment variable)
+    #[arg(long, global = true)]
+    public_key: Option<String>,
 
     /// Output format [json|table]
     #[arg(short, long, global = true)]
@@ -50,6 +54,9 @@ enum Commands {
     /// Card operations (create, get, list, update, delete)
     Card(CardArgs),
 
+    /// Token operations (create, get) - uses public key
+    Token(TokenArgs),
+
     /// Configuration management
     Config(ConfigArgs),
 }
@@ -72,19 +79,36 @@ fn run(cli: Cli) -> error::Result<()> {
     }
 
     // Build configuration
-    let config = Config::build(cli.api_key, cli.output, cli.verbose, cli.profile)?;
-
-    // Require API key for other commands
-    let api_key = config.require_api_key()?;
-
-    // Create API client
-    let client = PayjpClient::new(api_key)?.with_verbose(config.verbose);
+    let config = Config::build(
+        cli.api_key,
+        cli.public_key,
+        cli.output,
+        cli.verbose,
+        cli.profile,
+    )?;
 
     // Execute command
     match cli.command {
-        Commands::Charge(args) => args.run(&client, &config),
-        Commands::Customer(args) => args.run(&client, &config),
-        Commands::Card(args) => args.run(&client, &config),
+        Commands::Token(args) => {
+            // Token uses public key
+            let public_key = config.require_public_key()?;
+            args.run(public_key, &config)
+        }
+        Commands::Charge(args) => {
+            let api_key = config.require_api_key()?;
+            let client = PayjpClient::new(api_key)?.with_verbose(config.verbose);
+            args.run(&client, &config)
+        }
+        Commands::Customer(args) => {
+            let api_key = config.require_api_key()?;
+            let client = PayjpClient::new(api_key)?.with_verbose(config.verbose);
+            args.run(&client, &config)
+        }
+        Commands::Card(args) => {
+            let api_key = config.require_api_key()?;
+            let client = PayjpClient::new(api_key)?.with_verbose(config.verbose);
+            args.run(&client, &config)
+        }
         Commands::Config(_) => unreachable!(),
     }
 }

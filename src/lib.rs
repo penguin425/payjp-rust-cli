@@ -5,6 +5,6 @@ pub mod error;
 pub mod models;
 pub mod output;
 
-pub use api::PayjpClient;
+pub use api::{PayjpClient, TokenClient};
 pub use config::{Config, OutputFormat};
 pub use error::{AppError, Result};

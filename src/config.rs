@@ -7,6 +7,7 @@ use std::path::PathBuf;
 const CONFIG_FILE_NAME: &str = "config.toml";
 const CONFIG_DIR_NAME: &str = "payjp";
 const ENV_API_KEY: &str = "PAYJP_SECRET_KEY";
+const ENV_PUBLIC_KEY: &str = "PAYJP_PUBLIC_KEY";
 const ENV_OUTPUT: &str = "PAYJP_OUTPUT";
 
 /// Output format
@@ -53,6 +54,8 @@ pub struct ProfileConfig {
     #[serde(default)]
     pub api_key: Option<String>,
     #[serde(default)]
+    pub public_key: Option<String>,
+    #[serde(default)]
     pub output: Option<String>,
 }
 
@@ -60,6 +63,7 @@ pub struct ProfileConfig {
 #[derive(Debug, Clone)]
 pub struct Config {
     pub api_key: Option<String>,
+    pub public_key: Option<String>,
     pub output: OutputFormat,
     pub verbose: bool,
     pub profile: String,
@@ -69,6 +73,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             api_key: None,
+            public_key: None,
             output: OutputFormat::Table,
             verbose: false,
             profile: "default".to_string(),
@@ -132,6 +137,7 @@ impl Config {
     /// Priority: CLI args > Environment variables > Config file
     pub fn build(
         cli_api_key: Option<String>,
+        cli_public_key: Option<String>,
         cli_output: Option<String>,
         cli_verbose: bool,
         profile: Option<String>,
@@ -148,12 +154,18 @@ impl Config {
 
         // Environment variables
         let env_api_key = std::env::var(ENV_API_KEY).ok();
+        let env_public_key = std::env::var(ENV_PUBLIC_KEY).ok();
         let env_output = std::env::var(ENV_OUTPUT).ok();
 
         // Resolve API key (CLI > ENV > File)
         let api_key = cli_api_key
             .or(env_api_key)
             .or(profile_config.api_key);
+
+        // Resolve public key (CLI > ENV > File)
+        let public_key = cli_public_key
+            .or(env_public_key)
+            .or(profile_config.public_key);
 
         // Resolve output format (CLI > ENV > File > Default)
         let output_str = cli_output
@@ -165,6 +177,7 @@ impl Config {
 
         Ok(Self {
             api_key,
+            public_key,
             output,
             verbose: cli_verbose,
             profile: profile_name,
@@ -175,6 +188,13 @@ impl Config {
     pub fn require_api_key(&self) -> Result<&str> {
         self.api_key.as_deref().ok_or_else(|| {
             AppError::Config("API key is not set".to_string())
+        })
+    }
+
+    /// Get public key or return error
+    pub fn require_public_key(&self) -> Result<&str> {
+        self.public_key.as_deref().ok_or_else(|| {
+            AppError::Config("Public key is not set".to_string())
         })
     }
 }

@@ -13,9 +13,13 @@ pub struct ConfigArgs {
 pub enum ConfigCommand {
     /// Set configuration values
     Set {
-        /// API key
+        /// Secret API key (sk_xxx)
         #[arg(short = 'k', long)]
         api_key: Option<String>,
+
+        /// Public API key (pk_xxx)
+        #[arg(long)]
+        public_key: Option<String>,
 
         /// Output format (json or table)
         #[arg(short, long)]
@@ -40,11 +44,20 @@ pub enum ConfigCommand {
     Path,
 }
 
+fn mask_key(key: &str) -> String {
+    if key.len() > 8 {
+        format!("{}...{}", &key[..4], &key[key.len() - 4..])
+    } else {
+        "****".to_string()
+    }
+}
+
 impl ConfigArgs {
     pub fn run(&self) -> Result<()> {
         match &self.command {
             ConfigCommand::Set {
                 api_key,
+                public_key,
                 output,
                 profile,
             } => {
@@ -53,18 +66,20 @@ impl ConfigArgs {
                 let profile_config = if profile == "default" {
                     &mut config.default
                 } else {
-                    config.profiles.entry(profile.clone()).or_insert_with(ProfileConfig::default)
+                    config
+                        .profiles
+                        .entry(profile.clone())
+                        .or_insert_with(ProfileConfig::default)
                 };
 
                 if let Some(key) = api_key {
-                    // Mask the key for display
-                    let masked = if key.len() > 8 {
-                        format!("{}...{}", &key[..4], &key[key.len()-4..])
-                    } else {
-                        "****".to_string()
-                    };
                     profile_config.api_key = Some(key.clone());
-                    println!("{} API key set to: {}", "✓".green(), masked);
+                    println!("{} Secret key set to: {}", "✓".green(), mask_key(key));
+                }
+
+                if let Some(key) = public_key {
+                    profile_config.public_key = Some(key.clone());
+                    println!("{} Public key set to: {}", "✓".green(), mask_key(key));
                 }
 
                 if let Some(out) = output {
@@ -77,7 +92,11 @@ impl ConfigArgs {
                 }
 
                 Config::save_to_file(&config)?;
-                println!("\n{} Configuration saved to profile: {}", "✓".green(), profile);
+                println!(
+                    "\n{} Configuration saved to profile: {}",
+                    "✓".green(),
+                    profile
+                );
             }
 
             ConfigCommand::Show { profile } => {
@@ -94,14 +113,15 @@ impl ConfigArgs {
                 println!("{}", "─".repeat(40));
 
                 if let Some(ref key) = profile_config.api_key {
-                    let masked = if key.len() > 8 {
-                        format!("{}...{}", &key[..4], &key[key.len()-4..])
-                    } else {
-                        "****".to_string()
-                    };
-                    println!("  {:15} {}", "API Key:".dimmed(), masked);
+                    println!("  {:15} {}", "Secret Key:".dimmed(), mask_key(key));
                 } else {
-                    println!("  {:15} {}", "API Key:".dimmed(), "(not set)".yellow());
+                    println!("  {:15} {}", "Secret Key:".dimmed(), "(not set)".yellow());
+                }
+
+                if let Some(ref key) = profile_config.public_key {
+                    println!("  {:15} {}", "Public Key:".dimmed(), mask_key(key));
+                } else {
+                    println!("  {:15} {}", "Public Key:".dimmed(), "(not set)".yellow());
                 }
 
                 println!(
@@ -116,14 +136,23 @@ impl ConfigArgs {
                 println!("{}", "─".repeat(40));
 
                 if let Ok(env_key) = std::env::var("PAYJP_SECRET_KEY") {
-                    let masked = if env_key.len() > 8 {
-                        format!("{}...{}", &env_key[..4], &env_key[env_key.len()-4..])
-                    } else {
-                        "****".to_string()
-                    };
-                    println!("  {:20} {}", "PAYJP_SECRET_KEY:".dimmed(), masked);
+                    println!("  {:20} {}", "PAYJP_SECRET_KEY:".dimmed(), mask_key(&env_key));
                 } else {
-                    println!("  {:20} {}", "PAYJP_SECRET_KEY:".dimmed(), "(not set)".dimmed());
+                    println!(
+                        "  {:20} {}",
+                        "PAYJP_SECRET_KEY:".dimmed(),
+                        "(not set)".dimmed()
+                    );
+                }
+
+                if let Ok(env_key) = std::env::var("PAYJP_PUBLIC_KEY") {
+                    println!("  {:20} {}", "PAYJP_PUBLIC_KEY:".dimmed(), mask_key(&env_key));
+                } else {
+                    println!(
+                        "  {:20} {}",
+                        "PAYJP_PUBLIC_KEY:".dimmed(),
+                        "(not set)".dimmed()
+                    );
                 }
 
                 if let Ok(env_output) = std::env::var("PAYJP_OUTPUT") {
@@ -140,7 +169,8 @@ impl ConfigArgs {
                 println!("{}", "─".repeat(40));
 
                 // Default profile
-                let has_default = config.default.api_key.is_some();
+                let has_default =
+                    config.default.api_key.is_some() || config.default.public_key.is_some();
                 println!(
                     "  {} {}",
                     "default".cyan(),
@@ -149,7 +179,7 @@ impl ConfigArgs {
 
                 // Other profiles
                 for (name, profile) in &config.profiles {
-                    let has_key = profile.api_key.is_some();
+                    let has_key = profile.api_key.is_some() || profile.public_key.is_some();
                     println!(
                         "  {} {}",
                         name.cyan(),

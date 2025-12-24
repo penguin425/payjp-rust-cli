@@ -1,5 +1,5 @@
 use crate::config::OutputFormat;
-use crate::models::{Card, Charge, Customer, DeleteResponse, List};
+use crate::models::{Card, Charge, Customer, DeleteResponse, List, Token};
 use chrono::{FixedOffset, TimeZone};
 use colored::Colorize;
 use serde::Serialize;
@@ -380,6 +380,61 @@ impl TableDisplay for Card {
         let table = Table::new(rows)
             .with(Style::rounded())
             .with(Modify::new(Columns::first()).with(Width::truncate(24).suffix("...")))
+            .to_string();
+        println!("{}", table);
+    }
+}
+
+/// Table row for Token
+#[derive(Tabled)]
+struct TokenRow {
+    #[tabled(rename = "ID")]
+    id: String,
+    #[tabled(rename = "Card")]
+    card: String,
+    #[tabled(rename = "Used")]
+    used: String,
+    #[tabled(rename = "Created")]
+    created: String,
+}
+
+impl From<&Token> for TokenRow {
+    fn from(token: &Token) -> Self {
+        Self {
+            id: token.id.clone(),
+            card: format!("{} ****{}", token.card.brand, token.card.last4),
+            used: if token.used { "✓".yellow().to_string() } else { "✗".green().to_string() },
+            created: format_timestamp(token.created),
+        }
+    }
+}
+
+impl TableDisplay for Token {
+    fn print_table(&self) {
+        println!("{}", "Token Details".bold());
+        println!("{}", "─".repeat(50));
+        println!("  {:15} {}", "ID:".dimmed(), self.id.green());
+        println!("  {:15} {}", "Used:".dimmed(), if self.used { "Yes".yellow() } else { "No".green() });
+        println!("  {:15} {}", "Live Mode:".dimmed(), if self.livemode { "Yes" } else { "No (Test)" });
+        println!("  {:15} {}", "Created:".dimmed(), format_timestamp(self.created));
+        println!();
+        println!("  {}", "Card Information:".bold());
+        println!("    {:13} {}", "Brand:".dimmed(), self.card.brand);
+        println!("    {:13} ****{}", "Number:".dimmed(), self.card.last4);
+        println!("    {:13} {:02}/{}", "Expiry:".dimmed(), self.card.exp_month, self.card.exp_year);
+        if let Some(ref name) = self.card.name {
+            println!("    {:13} {}", "Name:".dimmed(), name);
+        }
+        if let Some(ref cvc) = self.card.cvc_check {
+            println!("    {:13} {}", "CVC Check:".dimmed(), cvc);
+        }
+    }
+
+    fn print_list(items: &[Self]) {
+        let rows: Vec<TokenRow> = items.iter().map(TokenRow::from).collect();
+        let table = Table::new(rows)
+            .with(Style::rounded())
+            .with(Modify::new(Columns::first()).with(Width::truncate(28).suffix("...")))
             .to_string();
         println!("{}", table);
     }
