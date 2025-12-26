@@ -66,7 +66,6 @@ pub struct Config {
     pub public_key: Option<String>,
     pub output: OutputFormat,
     pub verbose: bool,
-    pub profile: String,
 }
 
 impl Default for Config {
@@ -76,7 +75,6 @@ impl Default for Config {
             public_key: None,
             output: OutputFormat::Table,
             verbose: false,
-            profile: "default".to_string(),
         }
     }
 }
@@ -180,7 +178,6 @@ impl Config {
             public_key,
             output,
             verbose: cli_verbose,
-            profile: profile_name,
         })
     }
 

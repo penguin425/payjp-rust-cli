@@ -4,6 +4,7 @@ use thiserror::Error;
 
 /// Application error types
 #[derive(Error, Debug)]
+#[allow(dead_code)]
 pub enum AppError {
     #[error("API error: {0}")]
     Api(PayjpErrorDetail),

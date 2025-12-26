@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Generic list response from PAY.JP API
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10,9 +9,6 @@ pub struct List<T> {
     pub url: String,
     pub data: Vec<T>,
 }
-
-/// Metadata type alias
-pub type Metadata = HashMap<String, String>;
 
 /// Delete response
 #[derive(Debug, Clone, Serialize, Deserialize)]
